@@ -10,7 +10,8 @@
 class Epigenetic {
   constructor(genome) {
     this.genome = genome;
-    this.simDays = 0;          // developmental age in simulated days
+    this.simDays = 0;          // developmental age in simulated days (continuous float)
+    this.lastDayProcessed = 0; // last integer day for which side-effects ran
     // Which plasticity rules are active and at what gain.
     this.rules = {
       predictiveCoding: 1.0,
@@ -26,7 +27,6 @@ class Epigenetic {
   plasticityMultiplier() {
     const decay = this.genome ? this.genome.plasticityDecay : 0.999;
     const base = Math.max(0.15, Math.pow(decay, this.simDays * 100));
-    // Map age to developmental phase.
     return base * 2.0;
   }
 
@@ -36,9 +36,26 @@ class Epigenetic {
     return 'senescence';
   }
 
-  // Slow update: called once per simulated day (the slowest clock).
+  // Continuous time advance: called every tick with the elapsed sim-time.
+  // Phase-dependent rule updates fire each time we cross an integer day.
+  // Returns true if a day boundary was crossed (for logging).
+  advance(deltaSimDays, synapses) {
+    this.simDays += deltaSimDays;
+    const wholeDay = Math.floor(this.simDays);
+    if (wholeDay <= this.lastDayProcessed) return false;
+    this.lastDayProcessed = wholeDay;
+    this.applyPhaseRules(synapses);
+    return true;
+  }
+
+  // Legacy entry point: advance exactly one whole sim-day (used by sleep cycles).
   tickDay(synapses) {
-    this.simDays++;
+    this.simDays = Math.floor(this.simDays) + 1;
+    this.lastDayProcessed = Math.floor(this.simDays);
+    this.applyPhaseRules(synapses);
+  }
+
+  applyPhaseRules(synapses) {
     const phase = this.phase();
     if (phase === 'critical-period') {
       this.rules.stdp = 1.2;
@@ -69,6 +86,7 @@ class Epigenetic {
   toJSON() {
     return {
       simDays: this.simDays,
+      lastDayProcessed: this.lastDayProcessed,
       rules: this.rules,
       pruningPressure: this.pruningPressure,
     };
@@ -77,6 +95,7 @@ class Epigenetic {
   load(obj) {
     if (!obj) return;
     this.simDays = obj.simDays || 0;
+    this.lastDayProcessed = obj.lastDayProcessed != null ? obj.lastDayProcessed : Math.floor(this.simDays);
     this.rules = obj.rules || this.rules;
     this.pruningPressure = obj.pruningPressure || 0;
   }

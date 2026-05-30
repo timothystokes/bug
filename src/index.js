@@ -47,9 +47,11 @@ function main() {
   if (args.log) logmod.setLevel(args.log);
 
   const { brain, stateDir } = loadOrBirth(args);
-  const runner = new Runner(brain, { stateDir });
+  const realtimeFactor = args.realtime != null ? Number(args.realtime) : 1.0;
+  const runner = new Runner(brain, { stateDir, realtimeFactor });
 
   log.info(`Brain online — scale=${brain.config.scale}, neurons=${brain.populations.n}, synapses=${brain.synapses.m}.`);
+  log.info(`Real-time pacing: ${isFinite(runner.targetTicksPerSec) ? runner.targetTicksPerSec.toFixed(2) + ' ticks/sec (factor ' + realtimeFactor + 'x)' : 'uncapped'}.`);
   console.log(JSON.stringify(brain.stats(), null, 2));
 
   runner.start();

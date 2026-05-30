@@ -64,7 +64,7 @@ async function train(argv) {
   process.on('SIGTERM', onSig);
 
   // Periodic autosave so a hard kill doesn't lose everything.
-  const autosaveEveryMs = 30000;
+  const autosaveEveryMs = 60000;
   let lastSave = Date.now();
 
   function feedSome() {

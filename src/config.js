@@ -97,9 +97,12 @@ const DEFAULT_TUNABLES = {
   // Neuromodulator update cadence (ticks) and epigenetic cadence (ticks).
   neuromodEveryTicks: 200,
   epigeneticEveryTicks: 20000,
-  snapshotEveryTicks: 5000,
-  // Slow clocks scaled down for dev so they are observable in short runs.
-  ticksPerSimDay: 50000,
+  // Biological time mapping: 1 tick = 1 ms (standard computational-neuro dt),
+  // so a simulated day is 86_400_000 ticks. The simulator runs as fast as the
+  // hardware allows; sim-time accumulates at whatever rate the CPU can sustain
+  // (typically much slower than wall time for an honest biological model).
+  msPerTick: 1,
+  ticksPerSimDay: 86400000,
   // Hippocampal write threshold on salience/surprise.
   hippoWriteThreshold: 0.6,
   episodicCap: 5000,

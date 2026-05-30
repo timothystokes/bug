@@ -2,21 +2,52 @@
 
 const readline = require('readline');
 const snapshot = require('../persist/snapshot');
+const styled = require('../util/console');
 
 // CLI command loop (README "Introspect"): stats / examine / save / sleep / exit.
 // Free text typed at the prompt is fed into the somatic/keyboard channel.
 function startCLI(brain, runner) {
-  const rl = readline.createInterface({ input: process.stdin, output: process.stdout, terminal: false });
+  const isTTY = !!process.stdout.isTTY;
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout,
+    terminal: isTTY,
+    prompt: 'brain> ',
+  });
+
+  // Safe "log above prompt": erase current line, write the output, then
+  // restore the prompt and whatever the user has typed so far. This is the
+  // standard pattern for interleaving background log lines with an active
+  // readline prompt.
+  function writeAbovePrompt(text) {
+    if (!isTTY) { process.stdout.write(text); return; }
+    // Erase the current prompt line, write the message, then ask readline to
+    // re-render the prompt + in-progress input + cursor in one shot. Using the
+    // internal _refreshLine method is the standard pattern; it's been stable
+    // across Node versions and avoids the double-echo we get if we both call
+    // rl.prompt() and manually write rl.line.
+    process.stdout.write('\r\x1b[2K');
+    process.stdout.write(text);
+    if (typeof rl._refreshLine === 'function') {
+      rl._refreshLine();
+    } else {
+      rl.prompt(true);
+    }
+  }
+  styled.setWriter(writeAbovePrompt);
+  require('../util/log').setWriter(writeAbovePrompt);
 
   printHelp();
-  process.stdout.write('\nbrain> ');
+  process.stdout.write('\n');
+  rl.prompt();
 
   rl.on('line', (line) => {
+    styled.flushBrain();
     const text = line.trim();
     const [cmd, ...rest] = text.split(/\s+/);
     switch (cmd) {
       case 'stats':
-        console.log(JSON.stringify(brain.stats(), null, 2));
+        styled.block(JSON.stringify(brain.stats(), null, 2));
         break;
       case 'examine': {
         let idx;
@@ -26,34 +57,34 @@ function startCLI(brain, runner) {
         } else if (/^\d+$/.test(tok)) {
           idx = parseInt(tok, 10);
         } else {
-          // Region name: pick a random neuron within that region.
           const region = brain.config.regions.find(
             (r) => r.name.toLowerCase() === tok.toLowerCase()
           );
           if (!region) {
-            console.log(
+            styled.sys(
               `unknown region "${tok}". Regions: ${brain.config.regions.map((r) => r.name).join(', ')}`
             );
             break;
           }
           idx = region.start + Math.floor(Math.random() * region.count);
         }
-        console.log(JSON.stringify(brain.examine(idx), null, 2));
+        styled.block(JSON.stringify(brain.examine(idx), null, 2));
         break;
       }
       case 'save':
         runner.save();
-        console.log(`saved (checksum ${brain.checksum()})`);
+        styled.sys(`saved (checksum ${brain.checksum()})`);
         break;
       case 'sleep': {
         const cycles = rest[0] ? parseInt(rest[0], 10) : 200;
         const r = brain.sleep(cycles);
-        console.log(`slept: ${JSON.stringify(r)}`);
+        styled.sys(`slept: ${JSON.stringify(r)}`);
         break;
       }
       case 'feed':
+        styled.userLine(rest.join(' '));
         brain.feedText(rest.join(' ') + ' ');
-        console.log('fed to somatic channel');
+        styled.sys('(fed to somatic channel)');
         break;
       case 'help':
       case '?':
@@ -66,11 +97,11 @@ function startCLI(brain, runner) {
       case '':
         break;
       default:
-        // Any other text is sensory input (the keyboard/proprio channel).
+        styled.userLine(text);
         brain.feedText(text + ' ');
         break;
     }
-    process.stdout.write('brain> ');
+    rl.prompt();
   });
 
   rl.on('close', () => shutdown(brain, runner, rl));

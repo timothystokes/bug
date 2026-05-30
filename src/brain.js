@@ -214,10 +214,11 @@ class Brain {
       this.monitor.analyse();
       this.higherOrder.analyse(this.populations);
     }
-    // Epigenetic / developmental day (slowest clock).
-    if (t % T.ticksPerSimDay === 0 && t > 0) {
-      this.epigenetic.tickDay(this.synapses);
-      log.info(`Simulated day ${this.epigenetic.simDays} (${this.epigenetic.phase()})`);
+    // Epigenetic / developmental clock: advanced continuously every tick.
+    const dayDelta = 1 / T.ticksPerSimDay;
+    const crossed = this.epigenetic.advance(dayDelta, this.synapses);
+    if (crossed) {
+      log.info(`Simulated day ${Math.floor(this.epigenetic.simDays)} (${this.epigenetic.phase()})`);
     }
   }
 
@@ -246,6 +247,14 @@ class Brain {
     return { cycles, totalReplayed };
   }
 
+  // ---- Sim-time helpers (biological clock; dt = msPerTick) ----
+  simMs() {
+    return this.tickCount * (this.config.tunables.msPerTick || 1);
+  }
+  simTimeString() {
+    return formatSimTime(this.simMs());
+  }
+
   // ---- Introspection ----
   stats() {
     const ws = this.synapses.weightStats(this.populations);
@@ -255,8 +264,9 @@ class Brain {
       neurons: this.populations.n,
       synapses: this.synapses.m,
       tick: this.tickCount,
+      simTime: this.simTimeString(),
       lifetimeSpikes: this.lifetimeSpikes,
-      age_simDays: this.epigenetic.simDays,
+      age_simDays: round(this.epigenetic.simDays, 4),
       developmentalPhase: this.epigenetic.phase(),
       plasticityMult: round(this.epigenetic.plasticityMultiplier()),
       eiActivityRatio: round(m.eiRatio),
@@ -343,6 +353,23 @@ function round(x, d = 3) {
   const f = Math.pow(10, d);
   return Math.round(x * f) / f;
 }
+
+function formatSimTime(ms) {
+  if (!ms || ms < 0) return '0ms';
+  let s = Math.floor(ms / 1000);
+  const millis = Math.floor(ms % 1000);
+  const days = Math.floor(s / 86400); s -= days * 86400;
+  const hours = Math.floor(s / 3600); s -= hours * 3600;
+  const mins = Math.floor(s / 60); s -= mins * 60;
+  const parts = [];
+  if (days) parts.push(days + 'd');
+  if (hours || days) parts.push(hours + 'h');
+  if (mins || hours || days) parts.push(mins + 'm');
+  parts.push(s + (millis && !days && !hours && !mins ? '.' + String(millis).padStart(3, '0') : '') + 's');
+  return parts.join(' ');
+}
+
+module.exports.formatSimTime = formatSimTime;
 
 function clamp01(x) { return x < 0 ? 0 : x > 1 ? 1 : x; }
 

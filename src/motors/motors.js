@@ -3,6 +3,8 @@
 // Motor channels. Principle 9 (embodied I/O) + Principle 12 (behaviour-coupled
 // learning / closed action-perception loop).
 //
+const styledConsole = require('../util/console');
+
 // Phase-1 motor: reads Motor-cortex activity and emits a "vocalisation" token to
 // stdout. The act of writing is itself a tactile signal the brain can "feel"
 // (the README treats stdout as the touch channel), so the emission is fed back
@@ -43,7 +45,7 @@ class StdoutMotor {
     const token = ALPHABET[best];
     this.lastEmission = token;
     this.emissionCount++;
-    if (!this.silent) process.stdout.write(token === ' ' ? '' : '');
+    if (!this.silent) styledConsole.brainChar(token);
     return { token, symbolIndex: best };
   }
 

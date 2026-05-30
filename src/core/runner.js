@@ -14,8 +14,21 @@ class Runner {
     this.batchMs = opts.batchMs || 20;          // wall-time budget per batch
     this.maxBatch = opts.maxBatch || 5000;      // safety cap on ticks per batch
     this.running = false;
-    this.lastSnapshotTick = brain.tickCount;
+    this.lastSnapshotMs = Date.now();
+    this.snapshotEveryMs = opts.snapshotEveryMs || 60000; // wall-clock cadence
     this.onBatch = opts.onBatch || null;
+
+    // Real-time pacing. realtimeFactor=1.0 means 1 sim-second per wall-second.
+    // 0 / null / Infinity means "run as fast as possible" (training mode).
+    // For interactive CLI we cap to a sane rate so the brain doesn't burn a
+    // sim-day in 30 s of idle terminal.
+    const ticksPerSimSec = (brain.config.tunables.ticksPerSimDay || 50000) / 86400;
+    this.realtimeFactor = opts.realtimeFactor != null ? opts.realtimeFactor : 1.0;
+    this.targetTicksPerSec = (this.realtimeFactor > 0 && isFinite(this.realtimeFactor))
+      ? ticksPerSimSec * this.realtimeFactor
+      : Infinity;
+    this.tickDebt = 0;
+    this.lastPaceMs = Date.now();
   }
 
   start() {
@@ -31,19 +44,36 @@ class Runner {
   _loop() {
     if (!this.running) return;
     const start = Date.now();
+
+    // Compute how many ticks we're allowed to run this batch under the pacing cap.
+    let allowance = this.maxBatch;
+    if (isFinite(this.targetTicksPerSec)) {
+      const dtMs = start - this.lastPaceMs;
+      this.lastPaceMs = start;
+      this.tickDebt += (this.targetTicksPerSec * dtMs) / 1000;
+      allowance = Math.max(0, Math.floor(this.tickDebt));
+    }
+
     let ticks = 0;
-    while (this.running && ticks < this.maxBatch && (Date.now() - start) < this.batchMs) {
+    while (this.running && ticks < Math.min(this.maxBatch, allowance) && (Date.now() - start) < this.batchMs) {
       this.brain.tick();
       ticks++;
     }
-    // Periodic snapshot on a tick cadence.
-    const cadence = this.brain.config.tunables.snapshotEveryTicks;
-    if (this.brain.tickCount - this.lastSnapshotTick >= cadence) {
-      this.lastSnapshotTick = this.brain.tickCount;
+    if (isFinite(this.targetTicksPerSec)) this.tickDebt -= ticks;
+
+    if (Date.now() - this.lastSnapshotMs >= this.snapshotEveryMs) {
+      this.lastSnapshotMs = Date.now();
       try { snapshot.save(this.brain, this.stateDir); } catch (e) { log.error(`snapshot failed: ${e.message}`); }
     }
     if (this.onBatch) this.onBatch(ticks);
-    setImmediate(() => this._loop());
+
+    // Sleep until the next tick is due (under pacing) so we yield CPU.
+    if (isFinite(this.targetTicksPerSec) && this.tickDebt < 1) {
+      const waitMs = Math.max(5, Math.floor(1000 / Math.max(1, this.targetTicksPerSec)));
+      setTimeout(() => this._loop(), waitMs);
+    } else {
+      setImmediate(() => this._loop());
+    }
   }
 
   // Run synchronously for a fixed number of ticks (used by the trainer), yielding
@@ -63,7 +93,7 @@ class Runner {
 
   save() {
     snapshot.save(this.brain, this.stateDir);
-    this.lastSnapshotTick = this.brain.tickCount;
+    this.lastSnapshotMs = Date.now();
   }
 }
 
