@@ -1,0 +1,15 @@
+{
+  "seed": 4242,
+  "birthTimestamp": 1780115084391,
+  "eiRatioBias": 0.0028023680113255997,
+  "explorationBaseline": 0.15572175784036518,
+  "plasticityDecay": 0.9998381132254377,
+  "curiosityGain": 1.0072224664036185,
+  "neuromodSetpointBias": {
+    "da": 0.016877828026190395,
+    "serotonin": -0.02121210270561278,
+    "ne": -0.024031101795844736,
+    "ach": -0.009857720253057776,
+    "cortisol": -0.015584569028578701
+  }
+}

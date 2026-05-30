@@ -1,0 +1,85 @@
+'use strict';
+
+// Principle 8: Epigenetic / slow-regulatory layer. A slow timescale of gene-like
+// regulatory state sits above synaptic weights and changes *which* plasticity
+// rules are active and their gains, producing developmental phases and trait-
+// like stability. Source: Roy et al. (2025) lncRNA epigenetics of mood.
+// Principle 10: Lifespan / developmental trajectory (critical period ->
+// consolidation -> senescence pruning) is implemented as the age-dependent
+// modulation of this layer.
+class Epigenetic {
+  constructor(genome) {
+    this.genome = genome;
+    this.simDays = 0;          // developmental age in simulated days
+    // Which plasticity rules are active and at what gain.
+    this.rules = {
+      predictiveCoding: 1.0,
+      stdp: 1.0,
+      rpe: 1.0,
+      hippocampalWrite: 1.0,
+    };
+    this.pruningPressure = 0.0; // rises in senescence
+  }
+
+  // Critical-period plasticity multiplier: very high early, decays with age,
+  // floored so the adult brain still learns slowly.
+  plasticityMultiplier() {
+    const decay = this.genome ? this.genome.plasticityDecay : 0.999;
+    const base = Math.max(0.15, Math.pow(decay, this.simDays * 100));
+    // Map age to developmental phase.
+    return base * 2.0;
+  }
+
+  phase() {
+    if (this.simDays < 3) return 'critical-period';
+    if (this.simDays < 20) return 'consolidation';
+    return 'senescence';
+  }
+
+  // Slow update: called once per simulated day (the slowest clock).
+  tickDay(synapses) {
+    this.simDays++;
+    const phase = this.phase();
+    if (phase === 'critical-period') {
+      this.rules.stdp = 1.2;
+      this.rules.hippocampalWrite = 1.3;
+    } else if (phase === 'consolidation') {
+      this.rules.stdp = 1.0;
+      this.rules.hippocampalWrite = 1.0;
+    } else {
+      // Senescence: pruning dominates, network sparsifies but stabilises.
+      this.rules.stdp = 0.6;
+      this.rules.hippocampalWrite = 0.7;
+      this.pruningPressure = Math.min(1, this.pruningPressure + 0.05);
+      if (synapses) this.prune(synapses);
+    }
+  }
+
+  // Senescence pruning: weak synapses are zeroed (myelination-like efficiency).
+  prune(synapses) {
+    const thresh = 0.02 * this.pruningPressure;
+    let pruned = 0;
+    const w = synapses.weight;
+    for (let k = 0; k < w.length; k++) {
+      if (Math.abs(w[k]) < thresh) { w[k] = 0; pruned++; }
+    }
+    return pruned;
+  }
+
+  toJSON() {
+    return {
+      simDays: this.simDays,
+      rules: this.rules,
+      pruningPressure: this.pruningPressure,
+    };
+  }
+
+  load(obj) {
+    if (!obj) return;
+    this.simDays = obj.simDays || 0;
+    this.rules = obj.rules || this.rules;
+    this.pruningPressure = obj.pruningPressure || 0;
+  }
+}
+
+module.exports = { Epigenetic };

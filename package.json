@@ -1,0 +1,28 @@
+{
+  "name": "digital-brain",
+  "version": "1.0.0",
+  "description": "A structurally-honest digital brain with persistent memory, built on 21 brain-inspired principles and a Detect->Integrate->Mark->Execute core loop.",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --inspect src/index.js --scale=dev",
+    "train": "node src/curriculum/train.js",
+    "test": "node --test test/"
+  },
+  "keywords": [
+    "neuroscience",
+    "digital-brain",
+    "spiking-neural-network",
+    "predictive-coding",
+    "neuromodulation",
+    "hippocampus",
+    "persistent-memory",
+    "izhikevich",
+    "DIME"
+  ],
+  "author": "digital-brain project",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
