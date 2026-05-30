@@ -1,4 +1,11 @@
-# A digital brain with Persistent Memory 🧬💾
+```
+ ┏━━┓             
+ ┣━━┻┓╻   ╻┏━━━╸
+ ┃   ┃┃   ┃┃  ╺┓
+ ┗━━━┛┗━━━┛┗━━━┛
+```
+
+# Bug - A digital brain
 
 A reasonably complete model of the human brain that can;
 - See (computer camera)
@@ -6,7 +13,7 @@ A reasonably complete model of the human brain that can;
 - Generate sound (computers spakers)
 - Touch (std out, log to console)
 - Feel (std in, keyboard keystrokes)
-and **remember everything between sessions**.
+- Remember everything between sessions.
 
 ## Overview
 
