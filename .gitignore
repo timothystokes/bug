@@ -1,0 +1,21 @@
+# Persistent brain state (per-individual; not source)
+brain_state/
+brain_state_*/
+*.brain_state/
+
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnp.*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
